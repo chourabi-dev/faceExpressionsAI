@@ -21,7 +21,7 @@ class App extends React.Component {
     this.state = {
       didStart: false,
       exit: false,
-      duration: 900, // milliseconds => 900 seconds => 15mins,
+      meetLength: 10, // 900 seconds => 15mins,
       countDown: 0,
       currentQuestion: 0,
       questions: [
@@ -57,7 +57,20 @@ class App extends React.Component {
       ],
 
       endOfInterview: false,
-      savedFaceStates: []
+      savedFaceStates: [],
+
+      result : [
+        {expression: "neutral", result: 0},
+        {expression: "surprised", result: 0},
+        {expression: "happy", result: 0},
+        {expression: "angry", result: 0},
+        {expression: "disgusted", result: 0},
+        {expression: "sad", result: 0},
+        {expression: "fearful", result: 0}
+      ]
+
+
+
     }
 
     this.startTheInterveiw = this.startTheInterveiw.bind(this);
@@ -76,21 +89,47 @@ class App extends React.Component {
         countDown: (this.state.countDown + 1)
       })
 
-      if (this.state.countDown == this.state.questions[this.state.currentQuestion].duration) {
-        if ((this.state.currentQuestion + 1) === this.state.questions.length) {
+     
+        if ( this.state.countDown === this.state.meetLength) {
           // end of of interview
           this.setState({ endOfInterview: true })
 
           clearInterval(countDown);
 
+          this.calculateResult()
+
         } else {
-          this.setState({
-            currentQuestion: (this.state.currentQuestion + 1),
-            countDown: 0
-          })
+          
         }
-      }
+      
     }, 1000);
+  }
+
+
+
+  calculateResult(){
+
+    let resultmage = this.state.result;
+
+    for (let i = 0; i < resultmage.length; i++) {
+      const expression = resultmage[i];
+
+
+      for (let j = 0; j < this.state.savedFaceStates.length; j++) {
+        const savedExpression = this.state.savedFaceStates[j];
+
+        if (expression.expression === savedExpression[0].expression) {
+          expression.result = expression.result +1;
+        }
+        
+      }
+      
+    }
+
+    this.setState({
+      result:resultmage
+    })
+
   }
 
 
@@ -106,11 +145,13 @@ class App extends React.Component {
         faceapi.loadFaceExpressionModel('./weights/face_expression_model-weights_manifest.json').then((res) => {
           faceapi.detectSingleFace(video).withFaceExpressions().then((r) =>{
 
-            let tmp = this.state.savedFaceStates;
+            if (r != null) {
+              let tmp = this.state.savedFaceStates;
             tmp.push(r.expressions.asSortedArray());
             this.setState({  savedFaceStates: tmp  })
   
             console.log(this.state.savedFaceStates);
+            }
           })
   
         }).catch((e) => {
@@ -157,6 +198,15 @@ class App extends React.Component {
   }
 
 
+  nextQuestion(){
+    if ( (this.state.currentQuestion + 1) != this.state.questions.length  ) {
+      this.setState({
+        currentQuestion: (this.state.currentQuestion + 1),
+        countDown: 0
+      })
+    }
+  }
+
   render() {
     return (
       <div className="container-fluid">
@@ -174,6 +224,9 @@ class App extends React.Component {
             </div>
 
             <div className="col-sm-4">
+
+
+              
 
               {
                 this.state.didStart === false ?
@@ -198,9 +251,16 @@ class App extends React.Component {
                       this.state.endOfInterview === false ?
                         <section>
                           <h3>interview Clock :</h3>
-                          <p>
-                            -- : {this.state.countDown}
-                          </p>
+                          
+
+                          <div className="clock">
+                              <p>
+                              
+                              {
+                                this.state.countDown < 60 ? this.state.countDown+' sec(s)' : (this.state.countDown / 60).toFixed()+' min(s)'
+                              } / 15 mins
+                            </p>
+                          </div>
 
 
                           <hr />
@@ -214,13 +274,38 @@ class App extends React.Component {
                           <p>
                             {this.state.questions[this.state.currentQuestion].question}
                           </p>
+
+                          <button onClick={ ()=>{ this.nextQuestion() } } className="btn btn-primary" >Next question</button>
+
                         </section> :
                         <section>
 
                           <h3>Thanks for your time</h3>
                           <p>
                             We will contact in no time, stay tuned.
-                          </p>
+                          </p>                                
+
+
+                          <hr/>
+
+                          <ul>
+                             {
+                               this.state.result.map((e)=>{
+                                 return (
+                                  <li>
+                                    <label> <strong>{e.expression} : {((e.result / this.state.savedFaceStates.length) * 100 ) } %</strong> </label>
+                                    <div class="progress">
+                                    <div class="progress-bar" role="progressbar" style={ {width: ((e.result / this.state.savedFaceStates.length) * 100 )+'%'  } } aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                  </div>
+                                  </li>
+
+                                 );
+                               })
+                             }
+                          </ul>
+
+
+
 
                         </section>
                     }
